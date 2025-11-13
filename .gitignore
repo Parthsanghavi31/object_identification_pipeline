@@ -1,10 +1,6 @@
 access_token.txt
 __pycache__/*
 utils/__pycache__/*
-*.pt
-*.bin
-*.pth
-*.ckpt
 *.mp4
 .vscode
 transaction_videos_folders/*
