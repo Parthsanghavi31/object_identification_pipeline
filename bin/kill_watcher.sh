@@ -1,1 +1,1 @@
-sudo docker stop watcher
+sudo docker stop object_identification

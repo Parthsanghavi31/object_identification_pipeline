@@ -1,2 +1,2 @@
-sudo docker update --restart=always watcher
-sudo docker start watcher
+sudo docker update --restart=always object_identification
+sudo docker start object_identification

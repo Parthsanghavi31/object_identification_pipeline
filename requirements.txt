@@ -8,4 +8,4 @@ scikit_learn
 scipy
 transformers==4.52.4
 watchdog
-opencv-contrib-python
+opencv-contrib-python-headless

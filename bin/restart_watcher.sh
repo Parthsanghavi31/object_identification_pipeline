@@ -1,7 +1,7 @@
-echo "Stopping watcher services"
-sudo docker stop watcher
-echo "Killed all watcher services"
+echo "Stopping object_identification services"
+sudo docker stop object_identification
+echo "Killed all object_identification services"
 sleep 3
-echo " Starting watcher services"
-sudo docker start watcher
+echo " Starting object_identification services"
+sudo docker start object_identification
 echo "Finished restart procedure"

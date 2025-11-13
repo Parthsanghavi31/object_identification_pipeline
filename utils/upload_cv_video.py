@@ -89,9 +89,6 @@ def _gather_images(images_dir: Path):
 def upload_video(logger, post_transid, stream="0", is_bbox=False):
     """
     Creates and uploads an MP4 video from frame_*.jpg/png images.
-
-    - If is_bbox=False → expects: output_data/video_frames_cam{stream}/{txn}/Frames
-    - If is_bbox=True  → expects: output_data/bbox_labelled_frames_cam{stream}/{txn}/Frames
     
     Then zips, uploads, and cleans up.
     Returns True/False.
@@ -100,12 +97,13 @@ def upload_video(logger, post_transid, stream="0", is_bbox=False):
     try:
         assert stream in ("0", "1"), "stream must be '0' or '1'"
         logger.info(f"[UPLOAD START] Transaction={post_transid} | Stream={stream} | Type={label}")
-
-        base_root = (
-            f"output_data/bbox_labelled_frames_cam{stream}"
-            if is_bbox
-            else f"output_data/video_frames_cam{stream}"
-        )
+        
+        if is_bbox:
+            base_root = os.path.join(config.algo_frames, f"bbox_labelled_frames_cam{stream}")
+            logger.info(f"Base_path = {base_root}")
+        else:
+            base_root = os.path.join(config.algo_frames, f"video_frames_cam{stream}")
+            
         base_directory = Path(base_root) / f"{post_transid}"
         images_dir = base_directory / "Frames"
         video_dir = base_directory
@@ -151,7 +149,7 @@ def upload_video(logger, post_transid, stream="0", is_bbox=False):
         shutil.rmtree(images_dir, ignore_errors=True)
 
         # archive for upload
-        cv_upload_dir = Path("cv_upload_dir")
+        cv_upload_dir = Path("transaction_videos_folders/cv_upload_dir")
         cv_upload_dir.mkdir(parents=True, exist_ok=True)
         zip_name = f"{post_transid}_{label.lower()}_{stream}.zip"
         archive_path = cv_upload_dir / zip_name
@@ -189,18 +187,13 @@ def upload_both_videos(logger, post_transid, is_bbox=False):
     label = "BBOX" if is_bbox else "NORMAL"
     logger.info(f"[UPLOAD START - {label}] Transaction={post_transid}")
 
-    stream_paths = {
-        "0": (
-            Path(f"output_data/bbox_labelled_frames_cam0/{post_transid}/Frames")
-            if is_bbox
-            else Path(f"output_data/video_frames_cam0/{post_transid}/Frames")
-        ),
-        "1": (
-            Path(f"output_data/bbox_labelled_frames_cam1/{post_transid}/Frames")
-            if is_bbox
-            else Path(f"output_data/video_frames_cam1/{post_transid}/Frames")
-        ),
-    }
+    base_frames_dir = Path(config.algo_frames)
+
+    def frame_dir(stream_id: str) -> Path:
+        folder = "bbox_labelled_frames_cam" if is_bbox else "video_frames_cam"
+        return base_frames_dir / f"{folder}{stream_id}" / post_transid / "Frames"
+
+    stream_paths = {stream_id: frame_dir(stream_id) for stream_id in ("0", "1")}
     
     # Detect available streams
     available_streams = [
