@@ -1,1 +1,1 @@
-sudo docker start watcher
+sudo docker start object_identification

@@ -97,12 +97,6 @@ def resize_and_crop_frames(images_dir, clipped_files ,bbox_pts, cropped_frames):
         
     return cropped_frames, affine_matrix
 
-def display_frames(frames):
-    
-    for i in range(len(frames)):
-        cv2.imshow("image", frames[i])
-        cv2.waitKey(50)
-    cv2.destroyAllWindows()
 
 def get_diff_and_canny_images(cropped_frames):
     cropped_frames = np.array(cropped_frames)
@@ -1009,7 +1003,7 @@ def generate_bboxes(
     transaction_number=None,
     video_name = None,
     json_file_path=None,
-    crop_save_dir=None,            # optional: save cropped frames to this directory
+    crop_save_dir=None,                    # optional: save cropped frames to this directory
     return_images_for_visualization=False, # if True → return loaded bbox images as NumPy arrays
     pnts = None
 ):
@@ -1046,8 +1040,9 @@ def generate_bboxes(
     logger.info(f"Input video: {video_path}, JSON: {json_file_path}, Model: {model_path}")
 
     # ----------------------- PATH SETUP -----------------------
-    vid_to_frames_save_path = f"Top_cam_development/Fisheye_Camera_development/output_data/video_frames_cam{stream}/{transaction_number}/Frames"
-    bbox_labelled_frames_path = f"Top_cam_development/Fisheye_Camera_development/output_data/bbox_labelled_frames_cam{stream}/{transaction_number}/Frames"
+    algo_frames = config.algo_frames
+    vid_to_frames_save_path = os.path.join(algo_frames, f"video_frames_cam{stream}/{transaction_number}/Frames")
+    bbox_labelled_frames_path = os.path.join(algo_frames, f"bbox_labelled_frames_cam{stream}/{transaction_number}/Frames")
     os.makedirs(vid_to_frames_save_path, exist_ok=True)
     os.makedirs(bbox_labelled_frames_path, exist_ok=True)
     logger.info(f"Output dirs => frames: {vid_to_frames_save_path}, bboxes: {bbox_labelled_frames_path}")

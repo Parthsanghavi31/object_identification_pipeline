@@ -95,13 +95,6 @@ def resize_and_crop_frames(images_dir, clipped_files ,bbox_pts, cropped_frames):
         
     return cropped_frames, affine_matrix
 
-def display_frames(frames):
-    
-    for i in range(len(frames)):
-        cv2.imshow("image", frames[i])
-        cv2.waitKey(50)
-    cv2.destroyAllWindows()
-
 def get_diff_and_canny_images(cropped_frames):
     cropped_frames = np.array(cropped_frames)
     N = cropped_frames.shape[0] - 1 

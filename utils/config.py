@@ -1,48 +1,27 @@
 import os
 import numpy as np
 
+CV_FLAG = False
+
+vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
+
 # ==============================
 # 📁 general paths & logging
 # ==============================
-base_path = os.getcwd() + "/"
-log_folder = "logs"
-log_file = "camera-preview.log"
-version_file_path = "version.txt"
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+base_folder_path = os.path.join(repo_root, "transaction_videos_folders")
 
-# ==============================
-# 📷 camera settings
-# ==============================
-camera_resolution = (640, 480)   # for arducam
-resize_images = (640, 480)
-cameras_to_flip = [2]  # e.g. [0, 1] if you want to flip some streams
-
-# ==============================
-# 🌐 network & queue config
-# ==============================
-pika_name = "nano"
-vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
-Queue = "cvRequest"
-local_queue = "cvCPP"
-message_timeout = 3600  # seconds
-
-# ==============================
-# ⏱️ timing configs
-# ==============================
-save_frame = 2  # save every alternate frame
-pipeline_status_interval = 10800  # 3 hours
-minutes_to_end_transcation = 300
-warning_message_time = 180
-delete_logs_days = 30
-no_camera_alert_time = "last_alert.txt"
+# Frames saved during algorithm processing 
+algo_frames = os.path.join("transaction_videos_folders", "algo_frames")
 
 # ==============================
 # 🧠 model & product config
 # ==============================
 model_path = {
-    "0": "weights/checkpoint-1098-best",
-    "1": "weights/checkpoint-1098-best"
+    "0": "weights_mobilevit/v2",
+    "1": "weights_mobilevit/v2"
 }
-["Quest-chips Chili lime", "Quest Chips - Loaded Taco", "Legendary Protein Chip - Ranch"]
+# ["Quest-chips Chili lime", "Quest Chips - Loaded Taco", "Legendary Protein Chip - Ranch"]
 cv_products = {
     "0": [
         "Quest-chips Chili lime",
