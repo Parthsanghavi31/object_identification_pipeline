@@ -1,1 +1,1 @@
-sudo docker rm -f wacher 
+sudo docker rm -f object_identification 
