@@ -19,6 +19,7 @@ from joblib import load as joblib_load
 from pprint import pprint
 import torch, gc
 from utils import config
+from utils import configuration_parameters
 
 def vid_to_frames_save(video_path, vid_to_frames_save_path):
     video = cv2.VideoCapture(video_path)
@@ -1016,7 +1017,7 @@ def generate_bboxes(
     lr_section = config.lr_section[str(stream)]
     model_path = config.model_path[str(stream)]
     if pnts is None:
-        pnts = config.pnts[str(stream)]
+        pnts = configuration_parameters.pnts[str(stream)]
     bbox_coordinates = config.bbox_coordinates[str(stream)]
 
     # ----------------------- VIDEO SELECTION -----------------------

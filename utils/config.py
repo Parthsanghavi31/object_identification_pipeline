@@ -74,15 +74,6 @@ lr_section = {
     }
 }
 
-# ==============================
-# 📍 perspective points (for calibration)
-# ==============================
-cam_for_cv = ['0', '1']
-
-pnts = {
-    "0": [(0, 143), (320, 180), (320, 134), (0, 97)],   # Fisheye cam
-    "1": [(0, 48), (320, 39), (320, 111), (0, 120)]    # Non-fisheye cam
-}
 
 bbox_coordinates = {
     "0": {
