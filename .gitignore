@@ -5,3 +5,4 @@ utils/__pycache__/*
 .vscode
 transaction_videos_folders/*
 logs_object_identification/*
+utils/configuration_parameters.py

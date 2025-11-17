@@ -19,6 +19,7 @@ from joblib import load as joblib_load
 from pprint import pprint
 import torch, gc
 from utils import config
+from utils import configuration_parameters
 
 def vid_to_frames_save(video_path, vid_to_frames_save_path):
     video = cv2.VideoCapture(video_path)
@@ -675,7 +676,7 @@ def smoothing_out_event_labels(predictions_of_cropped_imgs, tray_cropped_images)
             of_imgs = []
             cleaned_preds = []
             for (label, conf), img in zip(smoothed, img_events):
-                if label != config.no_product_label and conf>=0.98:
+                if label != config.no_product_label and conf>=config.confidence_threshold:
                     of_imgs.append(img)               # images to run optical flow on
                     cleaned_preds.append((label, conf))  # keep corresponding cleaned preds
             if cleaned_preds:
@@ -1016,7 +1017,7 @@ def generate_bboxes(
     lr_section = config.lr_section[str(stream)]
     model_path = config.model_path[str(stream)]
     if pnts is None:
-        pnts = config.pnts[str(stream)]
+        pnts = configuration_parameters.pnts[str(stream)]
     bbox_coordinates = config.bbox_coordinates[str(stream)]
 
     # ----------------------- VIDEO SELECTION -----------------------

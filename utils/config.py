@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-CV_FLAG = False
+CV_FLAG = True
 
 vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
 
@@ -18,10 +18,11 @@ algo_frames = os.path.join("transaction_videos_folders", "algo_frames")
 # 🧠 model & product config
 # ==============================
 model_path = {
-    "0": "weights_mobilevit/v2",
-    "1": "weights_mobilevit/v2"
+    "0": "weights_mobilevit/v3",
+    "1": "weights_mobilevit/v3"
 }
-# ["Quest-chips Chili lime", "Quest Chips - Loaded Taco", "Legendary Protein Chip - Ranch"]
+confidence_threshold = 0.92 # originally at 98%
+
 cv_products = {
     "0": [
         "Quest-chips Chili lime",
@@ -73,15 +74,6 @@ lr_section = {
     }
 }
 
-# ==============================
-# 📍 perspective points (for calibration)
-# ==============================
-cam_for_cv = ['0', '1']
-
-pnts = {
-    "0": [(0, 113), (320, 96), (320, 61), (0, 78)],   # Fisheye cam
-    "1": [(0, 48), (320, 39), (320, 111), (0, 120)]    # Non-fisheye cam
-}
 
 bbox_coordinates = {
     "0": {
