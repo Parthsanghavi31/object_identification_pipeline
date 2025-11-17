@@ -23,11 +23,10 @@ from logging.handlers import RotatingFileHandler
 BASE_DIR = Path("transaction_videos_folders")
 TEMP_DIR = BASE_DIR / "post_archive"
 FAILED_UPLOADS_DIR = BASE_DIR / "failed_uploads"
-LOG_FILE = Path("logs_object_identification") / "object_identification.log"
+LOG_FILE = Path("logs_object_identification") / "object_identification_v2.log"
 
 # Ensure directories exist
 LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-
 
 # ---------------- Logging ----------------
 file_handler = RotatingFileHandler(LOG_FILE, maxBytes=5_000_000, backupCount=5)
@@ -47,7 +46,6 @@ def _is_within(base: Path, target: Path) -> bool:
         return str(target).startswith(str(base))
     except Exception:
         return False
-
 
 def safe_extractall(zf: zipfile.ZipFile, dest: Path):
     for member in zf.namelist():
@@ -215,7 +213,9 @@ def worker(q: Queue):
 
                 if any("media_1" in cam for cam in available_cams):
                     stream = "1"
+                    log.info(f"CV_FLAG : {config.CV_FLAG}")
                     if config.CV_FLAG:
+                        log.info("CV Flag is True")
                         cv_activities_cam1 = cv_algo(cam1_logger, sub_folder_path, json_file_path, transaction_number, stream)
                         products_cam1 = cv_product_present(json_file_path, cv_activities_cam1, stream)
                         log.info(f"Products (Cam 1): {products_cam1}")
@@ -225,10 +225,13 @@ def worker(q: Queue):
                 if config.CV_FLAG:
                     combined_products = products_cam0.union(products_cam1)
                     combined_activities = cv_activities_cam0 + cv_activities_cam1
-
+                    sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
+                    
                     if combined_products:
                         log.info(f"✅ Found CV product(s): {combined_products}")
-                        sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
+                        update_view_activities_dashboard(log, json_file_path, combined_activities)
+                        log.info(f"CV ACtivities: {combined_activities}")
+                        log.info(f"CV Products: {config.cv_products}")
                         upload_both_bbox_videos(log, transaction_number)
                     else:
                         log.info("No products detected in CV pipeline — uploading normal videos")
@@ -237,7 +240,7 @@ def worker(q: Queue):
                 else:
                     upload_both_normal_videos(log, transaction_number)
     
-            # shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+            shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
             if extracted_dir.exists():
                 shutil.rmtree(extracted_dir)
             if Path(zip_file_path).exists():
@@ -355,7 +358,7 @@ if __name__ == "__main__":
     threads['worker'] = start_worker(q)
     threads['recovery'] = start_recovery(q, TEMP_DIR)
 
-    Thread(target=heartbeat, args=(q, threads, 300), daemon=True, name="heartbeat").start()
+    Thread(target=heartbeat, args=(q, threads, 30), daemon=True, name="heartbeat").start()
     Thread(target=supervisor, args=(q, TEMP_DIR, threads, 100), daemon=True, name="supervisor").start()
 
     observer = Observer()

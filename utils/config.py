@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-CV_FLAG = False
+CV_FLAG = True
 
 vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
 
@@ -79,7 +79,7 @@ lr_section = {
 cam_for_cv = ['0', '1']
 
 pnts = {
-    "0": [(0, 113), (320, 96), (320, 61), (0, 78)],   # Fisheye cam
+    "0": [(0, 143), (320, 180), (320, 134), (0, 97)],   # Fisheye cam
     "1": [(0, 48), (320, 39), (320, 111), (0, 120)]    # Non-fisheye cam
 }
 

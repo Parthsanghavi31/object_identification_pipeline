@@ -18,7 +18,7 @@ docker create -it --restart always \
   -w /app/ \
   --name object_identification \
   parths3/object-identification:1.1.0 \
-  bash -c "python3 object_identification_main.py"
+  bash -c "python3 object_identification_main_v1.py"
 
 docker start object_identification
 # echo "Docker auto-start configured."
