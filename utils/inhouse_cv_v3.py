@@ -475,7 +475,7 @@ def draw_bbox_original_frame(images_dir, save_dir_modified_frames, clipped_files
                 if x2 > x1 and y2 > y1:
                     # Draw bounding box and annotate with area
                     cv2.circle(bbox_image, (cx*2, cy*2), 8, (255,255,0))
-                    points = config.pnts[str('0')] 
+                    points = configuration_parameters.pnts[str('0')] 
                     scaled_points = [(int(x * scale), int(y * scale)) for x, y in points]               
                     pts = [tuple(map(int, p)) for p in scaled_points]
                     pts = cv2.convexHull(np.array(pts)).reshape(-1, 1, 2)
