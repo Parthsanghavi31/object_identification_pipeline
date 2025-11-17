@@ -675,7 +675,7 @@ def smoothing_out_event_labels(predictions_of_cropped_imgs, tray_cropped_images)
             of_imgs = []
             cleaned_preds = []
             for (label, conf), img in zip(smoothed, img_events):
-                if label != config.no_product_label and conf>=0.98:
+                if label != config.no_product_label and conf>=config.confidence_threshold:
                     of_imgs.append(img)               # images to run optical flow on
                     cleaned_preds.append((label, conf))  # keep corresponding cleaned preds
             if cleaned_preds:

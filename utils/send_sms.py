@@ -110,7 +110,7 @@ def sms_alert(logger, json_file, cv_activities, post_transid, config_products):
         
         logger.info("Mismatch found between picked and bought products. Sending Alert")
         dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{post_transid}/activity/{report_id}'
-        payload = f'["CreateSMSText", "{"PF Conference Sundries Machine - Mismatch found between picked and bought products. Please review it!", (dashboard_url)}"]'
+        payload = f'["CreateSMSText", "{"Mismatch found between picked and bought products. Please review it!", (dashboard_url)}"]'
 
         try:
             response = requests.post(url=vicki_app, data=payload)
@@ -131,7 +131,7 @@ def recording_successful(logger, json_file_path, transaction_number):
     vicki_app = 'http://192.168.1.140:8085/tsv/flashapi'
 
     dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{transaction_number}/activity/{report_id}'
-    payload = f'["CreateSMSText", "{"PF Conference Sundries Machine - Transaction  was recorded successfully. Currently it is being processed, please wait a few minutes to see the final charge", (dashboard_url)}"]'
+    payload = f'["CreateSMSText", "{"Transaction  was recorded successfully. Currently it is being processed, please wait a few minutes to see the final charge", (dashboard_url)}"]'
 
     try:
         response = requests.post(url=vicki_app, data=payload)
@@ -151,7 +151,7 @@ def transaction_too_big_alert(logger, json_file_path, transaction_number):
     vicki_app = 'http://192.168.1.140:8085/tsv/flashapi'
 
     dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{transaction_number}/activity/{report_id}'
-    payload = f'["CreateSMSText", "{"PF Conference Sundries Machine - Transaction time is too long, the cv algorithm cant process it. Please review it manually!", (dashboard_url)}"]'
+    payload = f'["CreateSMSText", "{"Transaction time is too long, the cv algorithm cant process it. Please review it manually!", (dashboard_url)}"]'
 
     try:
         response = requests.post(url=vicki_app, data=payload)
@@ -170,7 +170,7 @@ def transaction_failure_alert(logger, json_file_path, transaction_number):
     vicki_app = 'http://192.168.1.140:8085/tsv/flashapi'
 
     dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{transaction_number}/activity/{report_id}'
-    payload = f'["CreateSMSText", "{"PF Conference Sundries Machine - CV Alogrithm didnt complete and Failed(Its in failed_upload_dir). Please review it!", (dashboard_url)}"]'
+    payload = f'["CreateSMSText", "{"CV Alogrithm didnt complete and Failed(Its in failed_upload_dir). Please review it!", (dashboard_url)}"]'
 
     try:
         response = requests.post(url=vicki_app, data=payload)

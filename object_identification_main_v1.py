@@ -185,7 +185,7 @@ def worker(q: Queue):
             transaction_number, available_cams, sub_folder_path, json_file_path = extract_transaction_info(extracted_dir)
 
             total_frames = calculate_frames(sub_folder_path, stream="0")
-            recording_successful(log, json_file_path, transaction_number)
+            # recording_successful(log, json_file_path, transaction_number)
 
             if total_frames >= 30000:
                 log.info("Not Processing this transaction—it is too big")
@@ -221,7 +221,9 @@ def worker(q: Queue):
                         log.info(f"Products (Cam 1): {products_cam1}")
                     else:
                         convert_video_to_frames(cam1_logger, sub_folder_path, json_file_path, transaction_number, stream)
-
+                        
+                log.info(f" Products_Cam 0: {products_cam0}")
+                log.info(f"CV Activities Cam 0: {cv_activities_cam0}")
                 if config.CV_FLAG:
                     combined_products = products_cam0.union(products_cam1)
                     combined_activities = cv_activities_cam0 + cv_activities_cam1

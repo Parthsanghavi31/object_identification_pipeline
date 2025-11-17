@@ -18,10 +18,11 @@ algo_frames = os.path.join("transaction_videos_folders", "algo_frames")
 # 🧠 model & product config
 # ==============================
 model_path = {
-    "0": "weights_mobilevit/v2",
-    "1": "weights_mobilevit/v2"
+    "0": "weights_mobilevit/v3",
+    "1": "weights_mobilevit/v3"
 }
-# ["Quest-chips Chili lime", "Quest Chips - Loaded Taco", "Legendary Protein Chip - Ranch"]
+confidence_threshold = 0.92 # originally at 98%
+
 cv_products = {
     "0": [
         "Quest-chips Chili lime",
