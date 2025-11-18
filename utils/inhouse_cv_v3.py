@@ -604,6 +604,57 @@ def roi_based_events_divison(group_img_big, group_img_OF, refined_group_roi_labe
 
     return tray_labels, tray_imgs_big, tray_OF_img
 
+
+@torch.no_grad()
+def run_model_on_frames(frames, model_id, batch=32, device="cpu"):
+    # Load
+    proc  = AutoImageProcessor.from_pretrained(model_id)
+    model = AutoModelForImageClassification.from_pretrained(model_id).to(device).eval()
+    labels = model.config.id2label
+
+    preds = []
+    n = len(frames)
+
+    for i in range(0, n, batch):
+        imgs = []
+
+        for f in frames[i:i+batch]:
+            # f is a NumPy BGR image (from OpenCV) → convert to RGB first
+            if isinstance(f, np.ndarray):
+                img_rgb = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
+                pil_img = Image.fromarray(img_rgb)
+            else:
+                # f is a file path
+                pil_img = Image.open(f).convert("RGB")
+
+            pil_img = pil_img.resize((256, 256))
+            imgs.append(pil_img)
+
+        inputs = proc(images=imgs, return_tensors="pt")
+
+        for k in inputs:
+            inputs[k] = inputs[k].to(device, non_blocking=True)
+
+        logits = model(**inputs).logits
+        probs  = F.softmax(logits, dim=-1)
+        top1   = probs.max(dim=-1)
+
+        preds.extend(
+            (labels[int(idx)], float(conf))
+            for idx, conf in zip(top1.indices, top1.values)
+        )
+
+        # Free CPU tensors
+        del inputs, logits, probs, top1
+        if device == "cpu":
+            gc.collect()
+
+    # Unload model
+    del model, proc
+    gc.collect()
+
+    return preds
+
 def classify_tray_images_per_section(tray_imgs, reference_dirs, batch=32):
     assert len(reference_dirs) == len(tray_imgs), "reference_dirs and tray_imgs length mismatch"
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -621,38 +672,6 @@ def classify_tray_images_per_section(tray_imgs, reference_dirs, batch=32):
             predictions_of_cropped_imgs.append(section_preds)
 
     return predictions_of_cropped_imgs
-
-@torch.no_grad()
-def run_model_on_frames(frames, model_id, batch=32, device="cpu"):
-    # Load
-    proc  = AutoImageProcessor.from_pretrained(model_id)
-    model = AutoModelForImageClassification.from_pretrained(model_id).to(device).eval()
-    labels = model.config.id2label
-
-    preds = []
-    n = len(frames)
-    for i in range(0, n, batch):
-        imgs   = [Image.fromarray(f).resize((256, 256)) for f in frames[i:i+batch]]
-        inputs = proc(images=imgs, return_tensors="pt")
-        # move only tensors to device
-        for k in inputs:
-            inputs[k] = inputs[k].to(device, non_blocking=True)
-
-        logits = model(**inputs).logits
-        probs  = F.softmax(logits, dim=-1)
-        top1   = probs.max(dim=-1)
-        preds.extend((labels[int(idx)], float(conf)) for idx, conf in zip(top1.indices, top1.values))
-
-        # free per-batch tensors (helps on CPU)
-        del inputs, logits, probs, top1
-        if device == "cpu":
-            gc.collect()
-
-    # Unload
-    del model, proc
-    gc.collect()
-
-    return preds
 
 #____________________________________________OPTICAL FLOW FUNCTIONS______________________________________________________#
 
