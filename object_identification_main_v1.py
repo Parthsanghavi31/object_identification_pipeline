@@ -5,6 +5,7 @@ from queue import Queue
 from threading import Thread
 import os
 import time
+import sys
 import zipfile
 import traceback
 from pathlib import Path
@@ -37,6 +38,7 @@ logging.basicConfig(
     handlers=[file_handler, stream_handler]
 )
 log = logging.getLogger("watchdog")
+
 
 # ---------------- Safe unzip ----------------
 def _is_within(base: Path, target: Path) -> bool:
@@ -74,7 +76,10 @@ def extract_transaction_info(extract_dir: Path):
     transaction_name = subfolder.name
     video_path_0 = subfolder / "media_0.mp4"
     video_path_1 = subfolder / "media_1.mp4"
+    
     json_path = subfolder / "user_activities.json"
+    if not json_path.exists():
+        json_path = None
 
     available_cams = []
 
@@ -85,7 +90,7 @@ def extract_transaction_info(extract_dir: Path):
     if not available_cams:
         raise FileNotFoundError(f"No media_*.mp4 files found in {subfolder}")
 
-    return transaction_name, available_cams, str(subfolder), str(json_path)
+    return transaction_name, available_cams, str(subfolder), json_path
 
 
 def wait_until_stable(filepath, wait_sec=1, max_wait=50):
@@ -114,7 +119,6 @@ def calculate_frames(sub_folder_path, stream):
     log.info(f"Total frames in {video_path}: {total}")
     return total
 
-
 def camera_logger(base_logger, stream):
     class CamLogger:
         def __getattr__(self, name):
@@ -123,8 +127,7 @@ def camera_logger(base_logger, stream):
             return wrapper
     return CamLogger()
 
-
-def convert_video_to_frames(logger, sub_folder_path, json_file_path, transaction_number, stream):
+def convert_video_to_frames(logger, sub_folder_path, transaction_number, stream):
     video_path = os.path.join(sub_folder_path, f"media_{stream}.mp4")
     algo_frames = config.algo_frames
     vid_to_frames_save_path = os.path.join(algo_frames, f"video_frames_cam{stream}/{transaction_number}/Frames")
@@ -151,118 +154,134 @@ def cv_algo(logger, sub_folder_path, json_file_path, transaction_number, stream)
 
 # ---------------- Worker ----------------
 def worker(q: Queue):
+    try:
+        # Cleanup non-ZIP files before starting
+        for item in Path(TEMP_DIR).iterdir():
+            try:
+                if item.is_file() and not item.name.endswith(".zip"):
+                    item.unlink()
+                    log.info(f"Deleted non-ZIP file: {item}")
+                elif item.is_dir():
+                    shutil.rmtree(item)
+                    log.info(f"Deleted leftover directory: {item}")
+            except Exception as e:
+                log.error(f"Error deleting {item}: {e}")
 
-    # Cleanup non-ZIP files before starting
-    for item in Path(TEMP_DIR).iterdir():
-        try:
-            if item.is_file() and not item.name.endswith(".zip"):
-                item.unlink()
-                log.info(f"Deleted non-ZIP file: {item}")
-            elif item.is_dir():
-                shutil.rmtree(item)
-                log.info(f"Deleted leftover directory: {item}")
-        except Exception as e:
-            log.error(f"Error deleting {item}: {e}")
+        while True:
+            zip_file_path = q.get()
+            start = time.time()
+            extracted_dir = None
+            transaction_number = None
+            json_file_path = None
 
-    while True:
-        zip_file_path = q.get()
-        start = time.time()
-        extracted_dir = None
-        transaction_number = None
-        json_file_path = None
+            try:
+                if zip_file_path:
+                    log.info(f"Detected new file: {zip_file_path}")
 
-        try:
-            if zip_file_path:
-                log.info(f"Detected new file: {zip_file_path}")
+                log.info("Checking stability…")
+                if not wait_until_stable(zip_file_path):
+                    log.error("File never stabilized, moving to failed_uploads")
+                    shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+                    continue
 
-            log.info("Checking stability…")
-            if not wait_until_stable(zip_file_path):
-                log.error("File never stabilized, moving to failed_uploads")
-                shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
-                continue
-
-            extracted_dir = unzip_in_place(zip_file_path)
-            transaction_number, available_cams, sub_folder_path, json_file_path = extract_transaction_info(extracted_dir)
-
-            total_frames = calculate_frames(sub_folder_path, stream="0")
-            # recording_successful(log, json_file_path, transaction_number)
-
-            if total_frames >= 30000:
-                log.info("Not Processing this transaction—it is too big")
-                transaction_too_big_alert(log, json_file_path, transaction_number)
-                shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
-                shutil.rmtree(extracted_dir)
-                continue
-
-            products_cam0 = set()
-            products_cam1 = set()
-            cv_activities_cam0 = []
-            cv_activities_cam1 = []
-            cam0_logger = camera_logger(log, "0")
-            cam1_logger = camera_logger(log, "1")
-
-            if len(available_cams) >= 1:
-                if any("media_0" in cam for cam in available_cams):
-                    stream = "0"
-                    if config.CV_FLAG:
-                        cv_activities_cam0 = cv_algo(cam0_logger, sub_folder_path, json_file_path, transaction_number, stream)
-                        products_cam0 = cv_product_present(json_file_path, cv_activities_cam0, stream)
-                        log.info(f"Products (Cam 0): {products_cam0}")
-                    else:
-                        convert_video_to_frames(cam0_logger, sub_folder_path, json_file_path, transaction_number, stream)
-
-                if any("media_1" in cam for cam in available_cams):
-                    stream = "1"
-                    log.info(f"CV_FLAG : {config.CV_FLAG}")
-                    if config.CV_FLAG:
-                        log.info("CV Flag is True")
-                        cv_activities_cam1 = cv_algo(cam1_logger, sub_folder_path, json_file_path, transaction_number, stream)
-                        products_cam1 = cv_product_present(json_file_path, cv_activities_cam1, stream)
-                        log.info(f"Products (Cam 1): {products_cam1}")
-                    else:
-                        convert_video_to_frames(cam1_logger, sub_folder_path, json_file_path, transaction_number, stream)
-                        
-                log.info(f" Products_Cam 0: {products_cam0}")
-                log.info(f"CV Activities Cam 0: {cv_activities_cam0}")
-                if config.CV_FLAG:
-                    combined_products = products_cam0.union(products_cam1)
-                    combined_activities = cv_activities_cam0 + cv_activities_cam1
-                    sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
-                    
-                    if combined_products:
-                        log.info(f"✅ Found CV product(s): {combined_products}")
-                        update_view_activities_dashboard(log, json_file_path, combined_activities)
-                        log.info(f"CV ACtivities: {combined_activities}")
-                        log.info(f"CV Products: {config.cv_products}")
-                        upload_both_bbox_videos(log, transaction_number)
-                    else:
-                        log.info("No products detected in CV pipeline — uploading normal videos")
-                        upload_both_normal_videos(log, transaction_number)
-                        upload_both_bbox_videos(log, transaction_number)
+                extracted_dir = unzip_in_place(zip_file_path)
+                transaction_number, available_cams, sub_folder_path, json_file_path = extract_transaction_info(extracted_dir)
+                if json_file_path is None:
+                    log.info("Json file doesn't exist, Just uploading just the video, nothing else")
                 else:
+                    json_file_path = str(json_file_path)
+
+                total_frames = calculate_frames(sub_folder_path, stream="0")
+                # recording_successful(log, json_file_path, transaction_number)
+
+                if total_frames >= 30000:
+                    if json_file_path:
+                        log.info("Not Processing this transaction—it is too big")
+                        transaction_too_big_alert(log, json_file_path, transaction_number)
+                        shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+                        shutil.rmtree(extracted_dir)
+                        continue
+
+                products_cam0 = set()
+                products_cam1 = set()
+                cv_activities_cam0 = []
+                cv_activities_cam1 = []
+                cam0_logger = camera_logger(log, "0")
+                cam1_logger = camera_logger(log, "1")
+
+                if len(available_cams) >= 1:
+                    if any("media_0" in cam for cam in available_cams):
+                        stream = "0"
+                        if config.CV_FLAG:
+                            cv_activities_cam0 = cv_algo(cam0_logger, sub_folder_path, json_file_path, transaction_number, stream)
+                            log.info(f" CV ACTIVITIES of CAM 0: {cv_activities_cam0}")
+                            if json_file_path:
+                                products_cam0 = cv_product_present(json_file_path, cv_activities_cam0, stream)
+                                log.info(f"Products (Cam 0): {products_cam0}")
+                        else:
+                            convert_video_to_frames(cam0_logger, sub_folder_path, transaction_number, stream)
+
+                    if any("media_1" in cam for cam in available_cams):
+                        stream = "1"
+                        log.info(f"CV_FLAG : {config.CV_FLAG}")
+                        if config.CV_FLAG:
+                            log.info("CV Flag is True")
+                            cv_activities_cam1 = cv_algo(cam1_logger, sub_folder_path, json_file_path, transaction_number, stream)
+                            log.info(f" CV ACTIVITIES of CAM 1: {cv_activities_cam1}")
+                            if json_file_path:
+                                products_cam1 = cv_product_present(json_file_path, cv_activities_cam1, stream)
+                                log.info(f"Products (Cam 1): {products_cam1}")
+                        else:
+                            convert_video_to_frames(cam1_logger, sub_folder_path, transaction_number, stream)
+                            
+                    log.info(f" Products_Cam 0: {products_cam0}")
+                    log.info(f"CV Activities Cam 0: {cv_activities_cam0}")
+                    if config.CV_FLAG:
+                        combined_products = products_cam0.union(products_cam1)
+                        combined_activities = cv_activities_cam0 + cv_activities_cam1
+                        if json_file_path:
+                            sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
+                        
+                        if combined_products:
+                            log.info(f"✅ Found CV product(s): {combined_products}")
+                            if json_file_path:
+                                update_view_activities_dashboard(log, json_file_path, combined_activities)
+                                log.info(f"CV ACtivities: {combined_activities}")
+                                log.info(f"CV Products: {config.cv_products}")
+                            upload_both_bbox_videos(log, transaction_number)
+                        else:
+                            log.info("No products detected in CV pipeline — uploading normal videos")
+                            upload_both_normal_videos(log, transaction_number)
+                            upload_both_bbox_videos(log, transaction_number)
+                    else:
+                        upload_both_normal_videos(log, transaction_number)
+                
+                #shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+                if extracted_dir.exists():
+                    shutil.rmtree(extracted_dir)
+                if Path(zip_file_path).exists():
+                    os.remove(zip_file_path)
+                log.info(f"✓ Completed all steps for {transaction_number} in {time.time()-start:.2f}s")
+
+            except Exception as e:
+                log.error(f"CV Algo failed. Unexpected error on {zip_file_path}: {e}")
+                if transaction_number:
+                    log.info("Due to failed transaction, Uploading it without processing")
                     upload_both_normal_videos(log, transaction_number)
-    
-#            shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
-            if extracted_dir.exists():
-                shutil.rmtree(extracted_dir)
-            if Path(zip_file_path).exists():
-                os.remove(zip_file_path)
-            log.info(f"✓ Completed all steps for {transaction_number} in {time.time()-start:.2f}s")
+                shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+                if json_file_path:
+                    transaction_failure_alert(log, json_file_path, transaction_number)
+                if extracted_dir and extracted_dir.exists():
+                    shutil.rmtree(extracted_dir)
+                log.exception(f"Unexpected error on {zip_file_path}")
 
-        except Exception as e:
-            log.error(f"CV Algo failed. Unexpected error on {zip_file_path}: {e}")
-            if transaction_number:
-                log.info("Due to failed transaction, Uploading it without processing")
-                upload_both_normal_videos(log, transaction_number)
-            shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
-            transaction_failure_alert(log, json_file_path, transaction_number)
-            if extracted_dir and extracted_dir.exists():
-                shutil.rmtree(extracted_dir)
-            log.exception(f"Unexpected error on {zip_file_path}")
+            finally:
+                q.task_done()
 
-        finally:
-            q.task_done()
-
+    except Exception as e:
+        log.error(f"[FATAL] Worker thread Crashed: {e}")
+        log.exception(e)
+        raise
 
 # ---------------- Watchdog / Threads ----------------
 def recovery_worker(queue: Queue, scan_dir: Path, scan_interval: int = 1800):
@@ -360,7 +379,7 @@ if __name__ == "__main__":
     threads['worker'] = start_worker(q)
     threads['recovery'] = start_recovery(q, TEMP_DIR)
 
-    Thread(target=heartbeat, args=(q, threads, 30), daemon=True, name="heartbeat").start()
+    Thread(target=heartbeat, args=(q, threads, 1500), daemon=True, name="heartbeat").start()
     Thread(target=supervisor, args=(q, TEMP_DIR, threads, 100), daemon=True, name="supervisor").start()
 
     observer = Observer()
