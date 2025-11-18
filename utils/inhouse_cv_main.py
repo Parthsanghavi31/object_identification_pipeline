@@ -19,6 +19,7 @@ from joblib import load as joblib_load
 from pprint import pprint
 import torch, gc
 from utils import config
+from utils import configuration_parameters
 
 def vid_to_frames_save(video_path, vid_to_frames_save_path, flip_frame = False):
     video = cv2.VideoCapture(video_path)
@@ -966,7 +967,7 @@ def cv_algo(logger, sub_folder_path, json_file_path, transaction_number, stream,
     tray_region = config.tray_region[str(stream)] 
     lr_section = config.lr_section[str(stream)]
     model_path = config.model_path[str(stream)]
-    pnts = config.pnts[str(stream)]
+    pnts = configuration_parameters.pnts[str(stream)]
     bbox_coordinates = config.bbox_coordinates[str(stream)]
     video_path = os.path.join(sub_folder_path, f"media_{stream}.mp4")
     
