@@ -376,6 +376,19 @@ def supervisor(q: Queue, scan_dir: Path, threads: dict, check_every: int = 60):
 if __name__ == "__main__":
     q = LoggingQueue()
     threads = {}
+    
+    log.info("Running initial scan for ZIP files...")
+    for z in Path(TEMP_DIR).glob("*.zip"):
+        try:
+            # Skip if zip is still being written (very new)
+            if time.time() - z.stat().st_mtime > 5:
+                log.info(f"[INITIAL SCAN] Queueing existing ZIP: {z}")
+                q.put(str(z))
+            else:
+                log.info(f"[INITIAL SCAN] Skipping {z} because it's too new")
+        except Exception as e:
+            log.error(f"[INITIAL SCAN] Error reading {z}: {e}")
+            
     threads['worker'] = start_worker(q)
     threads['recovery'] = start_recovery(q, TEMP_DIR)
 
