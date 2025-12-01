@@ -234,25 +234,26 @@ def worker(q: Queue):
                         else:
                             convert_video_to_frames(cam1_logger, sub_folder_path, transaction_number, stream)
                             
-                    log.info(f" Products_Cam 0: {products_cam0}")
-                    log.info(f"CV Activities Cam 0: {cv_activities_cam0}")
+                    # log.info(f" Products_Cam 0: {products_cam0}")
+                    # log.info(f"CV Activities Cam 0: {cv_activities_cam0}")
                     if config.CV_FLAG:
                         combined_products = products_cam0.union(products_cam1)
                         combined_activities = cv_activities_cam0 + cv_activities_cam1
-                        if json_file_path:
-                            sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
                         
                         if combined_products:
                             log.info(f"✅ Found CV product(s): {combined_products}")
                             if json_file_path:
                                 update_view_activities_dashboard(log, json_file_path, combined_activities)
-                                log.info(f"CV ACtivities: {combined_activities}")
-                                log.info(f"CV Products: {config.cv_products}")
+                                log.info(f"CV Activities Combined: {combined_activities}")
+                                log.info(f"CV Products Combined: {config.cv_products}")
                             upload_both_bbox_videos(log, transaction_number)
                         else:
                             log.info("No products detected in CV pipeline — uploading normal videos")
-                            upload_both_normal_videos(log, transaction_number)
+                            # upload_both_normal_videos(log, transaction_number)
                             upload_both_bbox_videos(log, transaction_number)
+                            
+                        if json_file_path:
+                            sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
                     else:
                         upload_both_normal_videos(log, transaction_number)
                 

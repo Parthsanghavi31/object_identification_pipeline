@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-CV_FLAG = True
+CV_FLAG = False
 
 vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
 
