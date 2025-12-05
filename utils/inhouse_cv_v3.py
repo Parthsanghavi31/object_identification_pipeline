@@ -413,7 +413,7 @@ def tray_region_selection(centroid_x, centroid_y, tray_region, lr_section):
     return tray_label, section_label
 
 def draw_bbox_original_frame(images_dir, save_dir_modified_frames, clipped_files, grouped_indices, 
-                             grouped_centroids, grouped_areas, OF_centroids, tray_region, lr_section, bbox_coordinates):
+                             grouped_centroids, grouped_areas, OF_centroids, tray_region, lr_section, bbox_coordinates, stream):
     bbox_cropped_frames = []
     bbox_OF_cropped_frames = []
     frame_to_centroid = {}
@@ -475,12 +475,12 @@ def draw_bbox_original_frame(images_dir, save_dir_modified_frames, clipped_files
                 if x2 > x1 and y2 > y1:
                     # Draw bounding box and annotate with area
                     cv2.circle(bbox_image, (cx*2, cy*2), 8, (255,255,0))
-                    points = configuration_parameters.pnts[str('0')] 
+                    points = configuration_parameters.pnts[str(stream)] 
                     scaled_points = [(int(x * scale), int(y * scale)) for x, y in points]               
                     pts = [tuple(map(int, p)) for p in scaled_points]
                     pts = cv2.convexHull(np.array(pts)).reshape(-1, 1, 2)
 
-                    cv2.polylines(bbox_image, [pts], isClosed=True, color=(0,255,0), thickness=2)
+                    # cv2.polylines(bbox_image, [pts], isClosed=True, color=(0,255,0), thickness=2)
                     cv2.rectangle(bbox_image, ((x1*2)-4, (y1*2)-4), ((x2*2)+4, (y2*2)+4), (0, 255, 0), 4)
                     # cv2.putText(bbox_image, f"{tray_label}", (100, 100),
                     #             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -1035,6 +1035,7 @@ def generate_bboxes(
     tray_region = config.tray_region[str(stream)]
     lr_section = config.lr_section[str(stream)]
     model_path = config.model_path[str(stream)]
+    logger.info(f" Model Path used by the model is : {model_path}")
     if pnts is None:
         pnts = configuration_parameters.pnts[str(stream)]
     bbox_coordinates = config.bbox_coordinates[str(stream)]
@@ -1110,14 +1111,14 @@ def generate_bboxes(
     cent_sel, area_sel = selecting_crucial_centroids_and_areas(crucial_indices, centroids, areas)
     events, g_cent, g_area, OF_centroids = processing_centroids_and_areas(crucial_indices, cent_sel, area_sel)
     logger.info(f"Grouped into {len(events)} events")
-
+    logger.info(f"Stream : {stream}")
     # ----------------------- 9. DRAW BOUNDING BOXES -----------------------
     bbox_cropped_frames, bbox_cropped_OF_frames, roi_labels = draw_bbox_original_frame(
         vid_to_frames_save_path,
         bbox_labelled_frames_path,
         clipped_files,
         events, g_cent, g_area, OF_centroids,
-        tray_region, lr_section, bbox_coordinates
+        tray_region, lr_section, bbox_coordinates, stream
     )
     enhanced_frames = image_enhancement(bbox_cropped_frames, enhanced_frames=[])
     
@@ -1178,7 +1179,7 @@ def process_bboxes_and_classify(logger, bbox_data):
         enhanced_frames, bbox_cropped_OF_frames, events, roi_labels
     )
     tray_labels, tray_cropped_images, tray_OF_crop_img = roi_based_events_divison(
-        grouped_cropped_img, grouped_OF_cropped_img, grouped_roi_labels
+        grouped_cropped_img, grouped_OF_cropped_img, grouped_roi_zlabels
     )
 
     # ----- classification -----
@@ -1186,7 +1187,7 @@ def process_bboxes_and_classify(logger, bbox_data):
     predictions_of_cropped_imgs = classify_tray_images_per_section(
         tray_cropped_images, reference_dirs, batch=32
     )
-
+    logger.info(f"Classification Accuracy : {predictions_of_cropped_imgs}")
     # ----- smooth labels -----
     optical_flow_all_events, product_bought = smoothing_out_event_labels(
         predictions_of_cropped_imgs, tray_OF_crop_img

@@ -257,7 +257,7 @@ def worker(q: Queue):
                     else:
                         upload_both_normal_videos(log, transaction_number)
                 
-                #shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+                shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
                 if extracted_dir.exists():
                     shutil.rmtree(extracted_dir)
                 if Path(zip_file_path).exists():

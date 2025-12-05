@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-CV_FLAG = False
+CV_FLAG = True
 
 vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
 
@@ -19,9 +19,9 @@ algo_frames = os.path.join("transaction_videos_folders", "algo_frames")
 # ==============================
 model_path = {
     "0": "weights_mobilevit/v3",
-    "1": "weights_mobilevit/v3"
+    "1": "weights_mobilevit/cam2_weights_v1"
 }
-confidence_threshold = 0.92 # originally at 98%
+confidence_threshold = 0.95 # originally at 98%
 
 cv_products = {
     "0": [
@@ -30,9 +30,16 @@ cv_products = {
         "Legendary Protein Chip - Ranch"
     ],
     "1": [
-        "pepsi 500ml",
-        "diet pepsi 500ml",
-        "mountain dew 500ml"
+        "Aquafina",
+        "White 2 Bronze Coastal BTL",
+        "Cactus Cabana BTL",
+        "Collagenetics 2-in-1 PRO BTL",
+        "Lenny & Larry Fitzels - Everything Bagel",
+        "Gatorade Zero - Glacier Cherry",
+        "Infatuated BTL",
+        "Legendary Tasty Pastry - Strawberry",
+        "Skullcandy DIME 3",
+        "Vault BTL"
     ]
 }
 
@@ -87,7 +94,7 @@ bbox_coordinates = {
         "BBOX_SCALE": 2,
         "BBOX_OFFSETS_TRAY_1": [-45, -25, 45, 75],
         "BBOX_OFFSETS_TRAY_2": [-50, -25, 60, 55],
-        "BBOX_OFFSETS_DEFAULT": [-50, -25, 60, 55],
+        "BBOX_OFFSETS_DEFAULT": [-45, -25, 50, 45],
         "BBOX_OFFSETS_OPTICAL_FLOW": [-60, -25, 50, 55]
     }
 }
