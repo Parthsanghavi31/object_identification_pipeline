@@ -234,8 +234,6 @@ def worker(q: Queue):
                         else:
                             convert_video_to_frames(cam1_logger, sub_folder_path, transaction_number, stream)
                             
-                    # log.info(f" Products_Cam 0: {products_cam0}")
-                    # log.info(f"CV Activities Cam 0: {cv_activities_cam0}")
                     if config.CV_FLAG:
                         combined_products = products_cam0.union(products_cam1)
                         combined_activities = cv_activities_cam0 + cv_activities_cam1
@@ -258,6 +256,9 @@ def worker(q: Queue):
                         upload_both_normal_videos(log, transaction_number)
                 
                 shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+
+                if config.AUTO_CORRECT:
+                #shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
                 if extracted_dir.exists():
                     shutil.rmtree(extracted_dir)
                 if Path(zip_file_path).exists():

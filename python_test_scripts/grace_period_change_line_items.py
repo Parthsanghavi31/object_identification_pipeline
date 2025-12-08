@@ -1,7 +1,6 @@
 import requests
 import json
 
-
 def get_admin_access_token():
     url = "https://viatouchmedia-test.apigee.net/loyalty/users/login/viatouch-admin"
 

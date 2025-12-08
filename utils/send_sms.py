@@ -2,11 +2,12 @@ import requests
 from collections import defaultdict, Counter
 import re, json
 import logging
-from utils.grace_period_endpoint import *
+# from utils.grace_period_cv_update import *
 from utils import config
 from utils import login
+from utils import configuration_parameters
 
-def sms_alert(logger, json_file, cv_activities, post_transid, config_products):
+def autocorrect_transaction_charge_w_sms_alert(logger, json_file, cv_activities, post_transid, config_products):
     """
     Sends a discrepancy alert via POST request. Returns True if successful, else False.
     """
@@ -66,51 +67,10 @@ def sms_alert(logger, json_file, cv_activities, post_transid, config_products):
         logger.info("Picked products match the bought products.")
         
     else:
-        #___________________________________________Downcharge_______________________________________________________#
-        
-        # --- build downcharge-only ops ---
-        logger.info("Down-charging the Products in Grace Period time")
-        ops = []
-        for li in line_items:
-            pname_clean = clean_name(li.get("product_name", ""))
-            if pname_clean in config_products_cleaned:
-                current_qty = int(li.get("quantity", 0))
-                target_qty = picked_counter.get(pname_clean, 0)  # default to 0 if not picked
-
-                row = li.get("shelf_row")
-                col = li.get("shelf_column")
-
-                if target_qty == 0:
-                    if current_qty > 0:
-                        # reduce to zero via delete (can't PATCH quantity:0)
-                        ops.append({
-                            "quantity": current_qty,
-                            "shelf_row": row,
-                            "shelf_column": col,
-                            "op_type": "delete"
-                        })
-                    # if current_qty already 0, no-op
-                elif target_qty < current_qty:
-                    # downcharge to exactly picked quantity
-                    ops.append({
-                        "quantity": int(target_qty),
-                        "shelf_row": row,
-                        "shelf_column": col,
-                        "op_type": "update"
-                    })
-
-        body = {"line_items": ops}
-        base_loyalty_url = "https://viatouchmedia-prod.apigee.net/loyalty"
-        base_local_url, machine_id, machine_token, machine_api_key = login.get_custom_machine_settings(config.vicki_app, logger)
-        access_token = login.get_current_access_token(base_local_url, machine_id, machine_token, machine_api_key, logger)
-        # change_line_items(logger, access_token, base_loyalty_url, post_transid, body)
-        # get_updated_line_items(logger, base_loyalty_url, post_transid)
-        
-        #_____________________________________________________________________________________________________________#
-        
+    
         logger.info("Mismatch found between picked and bought products. Sending Alert")
         dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{post_transid}/activity/{report_id}'
-        payload = f'["CreateSMSText", "{"Mismatch found between picked and bought products. Please review it!", (dashboard_url)}"]'
+        payload = f'["CreateSMSText", "{(configuration_parameters.machine_name),"Mismatch found between picked and bought products. Please review it!", (dashboard_url)}"]'
 
         try:
             response = requests.post(url=vicki_app, data=payload)
@@ -119,8 +79,51 @@ def sms_alert(logger, json_file, cv_activities, post_transid, config_products):
                 return True
         except Exception as e:
             logger.error(f"Error sending SMS alert: {e}")
+    
+        #___________________________________________AUTOCORRECTING A INCORRECT TRANSACTION_______________________________________________________#
+        # if config.AUTO_CORRECT:
+        #     # --- build downcharge-only ops ---
+        #     logger.info("Down-charging the Products in Grace Period time")
+        #     ops = []
+        #     for li in line_items:
+        #         pname_clean = clean_name(li.get("product_name", ""))
+        #         if pname_clean in config_products_cleaned:
+        #             current_qty = int(li.get("quantity", 0))
+        #             target_qty = picked_counter.get(pname_clean, 0)  # default to 0 if not picked
+
+        #             row = li.get("shelf_row")
+        #             col = li.get("shelf_column")
+
+        #             if target_qty == 0:
+        #                 if current_qty > 0:
+        #                     # reduce to zero via delete (can't PATCH quantity:0)
+        #                     ops.append({
+        #                         "quantity": current_qty,
+        #                         "shelf_row": row,
+        #                         "shelf_column": col,
+        #                         "op_type": "delete"
+        #                     })
+        #                 # if current_qty already 0, no-op
+        #             elif target_qty < current_qty:
+        #                 # downcharge to exactly picked quantity
+        #                 ops.append({
+        #                     "quantity": int(target_qty),
+        #                     "shelf_row": row,
+        #                     "shelf_column": col,
+        #                     "op_type": "update"
+        #                 })
+
+            # body = {"line_items": ops}
+            # base_loyalty_url = "https://viatouchmedia-prod.apigee.net/loyalty"
+            # base_local_url, machine_id, machine_token, machine_api_key = login.get_custom_machine_settings(config.vicki_app, logger)
+            # access_token = login.get_current_access_token(base_local_url, machine_id, machine_token, machine_api_key, logger)
+            ## change_line_items(logger, access_token, base_loyalty_url, post_transid, body)
+            ## get_updated_line_items(logger, base_loyalty_url, post_transid)
             
-    return picked_counter, bought_counter
+            #_____________________________________________________________________________________________________________#
+            
+            
+    # return picked_counter, bought_counter
 
 def recording_successful(logger, json_file_path, transaction_number):
 
@@ -131,7 +134,7 @@ def recording_successful(logger, json_file_path, transaction_number):
     vicki_app = 'http://192.168.1.140:8085/tsv/flashapi'
 
     dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{transaction_number}/activity/{report_id}'
-    payload = f'["CreateSMSText", "{"Transaction  was recorded successfully. Currently it is being processed, please wait a few minutes to see the final charge", (dashboard_url)}"]'
+    payload = f'["CreateSMSText", "{(configuration_parameters.machine_name),"Transaction  was recorded successfully. Currently it is being processed, please wait a few minutes to see the final charge", (dashboard_url)}"]'
 
     try:
         response = requests.post(url=vicki_app, data=payload)
@@ -151,7 +154,7 @@ def transaction_too_big_alert(logger, json_file_path, transaction_number):
     vicki_app = 'http://192.168.1.140:8085/tsv/flashapi'
 
     dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{transaction_number}/activity/{report_id}'
-    payload = f'["CreateSMSText", "{"Transaction time is too long, the cv algorithm cant process it. Please review it manually!", (dashboard_url)}"]'
+    payload = f'["CreateSMSText", "{(configuration_parameters.machine_name),"Transaction time is too long, the cv algorithm cant process it. Please review it manually!", (dashboard_url)}"]'
 
     try:
         response = requests.post(url=vicki_app, data=payload)
@@ -170,7 +173,7 @@ def transaction_failure_alert(logger, json_file_path, transaction_number):
     vicki_app = 'http://192.168.1.140:8085/tsv/flashapi'
 
     dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{transaction_number}/activity/{report_id}'
-    payload = f'["CreateSMSText", "{"CV Alogrithm didnt complete and Failed(Its in failed_upload_dir). Please review it!", (dashboard_url)}"]'
+    payload = f'["CreateSMSText", "{(configuration_parameters.machine_name),"CV Alogrithm didnt complete and Failed(Its in failed_upload_dir). Please review it!", (dashboard_url)}"]'
 
     try:
         response = requests.post(url=vicki_app, data=payload)
@@ -182,7 +185,7 @@ def transaction_failure_alert(logger, json_file_path, transaction_number):
 
 if __name__ == "__main__":
     
-    json_file_path = 'failed_uploads/0c246b4e-ec99-4f1c-8ef3-294eeeae244e/user_activities.json'
+    json_file_path = '/home/parth/computer_vision_algorithms/object_identification_pipeline/python_test_scripts/user_activites.json'
     post_transid = '0c246b4e-ec99-4f1c-8ef3-294eeeae244e'
     cv_activities = [
     {"USER_PICKUP": "Quest-chips Loaded-Taco"},
@@ -203,5 +206,7 @@ if __name__ == "__main__":
     ]
 }
 
-    sms_alert(logger, json_file_path, cv_activities, post_transid, cv_products)
+    # sms_alert(logger, json_file_path, cv_activities, post_transid, cv_products)
+transaction_too_big_alert(logger, json_file_path, post_transid)
+    
    
