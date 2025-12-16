@@ -7,6 +7,28 @@ from utils import config
 from utils import login
 from utils import configuration_parameters
 
+def update_line_items(logger, access_token, transaction_id, payload):
+    url = f"https://viatouchmedia-test.apigee.net/loyalty/orders/cv/{transaction_id}"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+    logger.info(f"Payload for Changing line items is: {payload}")
+
+    try:
+        response = requests.patch(url, headers=headers, json=payload)
+
+        if response.status_code == 200:
+            logger.info("Line items updated successfully")
+            logger.info(f"Response:{response.text}")
+            print(response.text)
+        else:
+            logger.error(f"Error {response.status_code}: {response.text}")
+
+    except Exception as e:
+        logger.error(f"Request failed: {e}")
+
 def autocorrect_transaction_charge_w_sms_alert(logger, json_file, cv_activities, post_transid, config_products):
     """
     Sends a discrepancy alert via POST request. Returns True if successful, else False.
@@ -48,7 +70,7 @@ def autocorrect_transaction_charge_w_sms_alert(logger, json_file, cv_activities,
         bought_products = []
         
     config_products_comibined = config_products['0'] + config_products['1']
-    print(config_products_comibined)
+    # print(config_products_comibined)
     config_products_cleaned = [clean_name(prd) for prd in config_products_comibined]
     bought_product_cleaned = [product for product in bought_products if product in config_products_cleaned]
     logger.info(f"Line items: {line_items}")
@@ -61,70 +83,73 @@ def autocorrect_transaction_charge_w_sms_alert(logger, json_file, cv_activities,
     logger.info(f"Picked Products : {picked_counter}")
     logger.info(f"Bought Products : {bought_counter}")
     
+    print(f"Picked Counter: {picked_counter}")
     print(f"Bought Counter: {bought_counter}")
 
     if picked_counter == bought_counter:    
         logger.info("Picked products match the bought products.")
         
     else:
-    
         logger.info("Mismatch found between picked and bought products. Sending Alert")
         dashboard_url = f'https://dashboard.getvicki.com/reports/undefined/invoice/{post_transid}/activity/{report_id}'
         payload = f'["CreateSMSText", "{(configuration_parameters.machine_name),"Mismatch found between picked and bought products. Please review it!", (dashboard_url)}"]'
 
-        try:
-            response = requests.post(url=vicki_app, data=payload)
-            if response.status_code == 200:
-                logger.info(f"Alert sent successfully : The response is {response}" )
-                return True
-        except Exception as e:
-            logger.error(f"Error sending SMS alert: {e}")
+        # try:
+        #     response = requests.post(url=vicki_app, data=payload)
+        #     if response.status_code == 200:
+        #         logger.info(f"Alert sent successfully : The response is {response}" )
+        #         return True
+        # except Exception as e:
+        #     logger.error(f"Error sending SMS alert: {e}")
     
         #___________________________________________AUTOCORRECTING A INCORRECT TRANSACTION_______________________________________________________#
-        # if config.AUTO_CORRECT:
-        #     # --- build downcharge-only ops ---
-        #     logger.info("Down-charging the Products in Grace Period time")
-        #     ops = []
-        #     for li in line_items:
-        #         pname_clean = clean_name(li.get("product_name", ""))
-        #         if pname_clean in config_products_cleaned:
-        #             current_qty = int(li.get("quantity", 0))
-        #             target_qty = picked_counter.get(pname_clean, 0)  # default to 0 if not picked
+        if config.AUTO_CORRECT:
+            print("Going Inside twice")
+            # --- build downcharge-only ops ---
+            logger.info("Down-charging the Products in Grace Period time")
+            ops = []
+            for li in line_items:
+                pname_clean = clean_name(li.get("product_name", ""))
+                if pname_clean in config_products_cleaned:
+                    current_qty = int(li.get("quantity", 0))
+                    target_qty = picked_counter.get(pname_clean, 0)  # default to 0 if not picked
 
-        #             row = li.get("shelf_row")
-        #             col = li.get("shelf_column")
+                    row = li.get("shelf_row")
+                    col = li.get("shelf_column")
 
-        #             if target_qty == 0:
-        #                 if current_qty > 0:
-        #                     # reduce to zero via delete (can't PATCH quantity:0)
-        #                     ops.append({
-        #                         "quantity": current_qty,
-        #                         "shelf_row": row,
-        #                         "shelf_column": col,
-        #                         "op_type": "delete"
-        #                     })
-        #                 # if current_qty already 0, no-op
-        #             elif target_qty < current_qty:
-        #                 # downcharge to exactly picked quantity
-        #                 ops.append({
-        #                     "quantity": int(target_qty),
-        #                     "shelf_row": row,
-        #                     "shelf_column": col,
-        #                     "op_type": "update"
-        #                 })
+                    if target_qty == 0:
+                        if current_qty > 0:
+                            # reduce to zero via delete (can't PATCH quantity:0)
+                            ops.append({
+                                "quantity": current_qty,
+                                "shelf_row": row,
+                                "shelf_column": col,
+                                "op_type": "delete",
+                                "cv_intent": "CORRECTION"
+                            })
+                        # if current_qty already 0, no-op
+                    elif target_qty < current_qty:
+                        # downcharge to exactly picked quantity
+                        ops.append({
+                            "quantity": int(target_qty),
+                            "shelf_row": row,
+                            "shelf_column": col,
+                            "op_type": "update",
+                            "cv_intent": "CORRECTION"
+                        })
 
-            # body = {"line_items": ops}
-            # base_loyalty_url = "https://viatouchmedia-prod.apigee.net/loyalty"
-            # base_local_url, machine_id, machine_token, machine_api_key = login.get_custom_machine_settings(config.vicki_app, logger)
-            # access_token = login.get_current_access_token(base_local_url, machine_id, machine_token, machine_api_key, logger)
-            ## change_line_items(logger, access_token, base_loyalty_url, post_transid, body)
-            ## get_updated_line_items(logger, base_loyalty_url, post_transid)
-            
+                payload = {"line_items": ops}
+                print(payload)
+                logger.info(f" The Payload for the GRACE PERIOD is : {payload}")
+                # base_loyalty_url = "https://viatouchmedia-prod.apigee.net/loyalty"
+                base_local_url, machine_id, machine_token, machine_api_key = login.get_custom_machine_settings(config.vicki_app, logger)
+                access_token = login.get_current_access_token(base_local_url, machine_id, machine_token, machine_api_key, logger)
+                
+                # Changing Cart items with the below function
+                # update_line_items(logger, access_token, post_transid, payload)
+           
             #_____________________________________________________________________________________________________________#
             
-            
-    # return picked_counter, bought_counter
-
 def recording_successful(logger, json_file_path, transaction_number):
 
     with open(json_file_path, 'r') as file:
@@ -185,8 +210,8 @@ def transaction_failure_alert(logger, json_file_path, transaction_number):
 
 if __name__ == "__main__":
     
-    json_file_path = '/home/parth/computer_vision_algorithms/object_identification_pipeline/python_test_scripts/user_activites.json'
-    post_transid = '0c246b4e-ec99-4f1c-8ef3-294eeeae244e'
+    json_file_path = '/home/parth/computer_vision_algorithms/transaction_videos_folders/failed_uploads/c43fd93c-209a-408d-a166-ca15caae3692/user_activities.json'
+    post_transid = 'c43fd93c-209a-408d-a166-ca15caae3692'
     cv_activities = [
     {"USER_PICKUP": "Quest-chips Loaded-Taco"},
     {"USER_PICKUP": "Quest-chips Loaded-Taco"},
@@ -206,7 +231,5 @@ if __name__ == "__main__":
     ]
 }
 
-    # sms_alert(logger, json_file_path, cv_activities, post_transid, cv_products)
-transaction_too_big_alert(logger, json_file_path, post_transid)
-    
+    autocorrect_transaction_charge_w_sms_alert(logger, json_file_path, cv_activities, post_transid, cv_products)    
    

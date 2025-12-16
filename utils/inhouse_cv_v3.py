@@ -1179,7 +1179,7 @@ def process_bboxes_and_classify(logger, bbox_data):
         enhanced_frames, bbox_cropped_OF_frames, events, roi_labels
     )
     tray_labels, tray_cropped_images, tray_OF_crop_img = roi_based_events_divison(
-        grouped_cropped_img, grouped_OF_cropped_img, grouped_roi_zlabels
+        grouped_cropped_img, grouped_OF_cropped_img, grouped_roi_labels
     )
 
     # ----- classification -----

@@ -12,12 +12,13 @@ from pathlib import Path
 import shutil
 import logging
 from utils.inhouse_cv_v3 import *
-from utils.updating_database import *
-from utils.send_sms import *
+# from utils.updating_database import *
+from utils.send_sms_GP_autocorrect import *
 from utils.upload_cv_video import *
 from utils.check_cvproduct import *
 from utils import login
 from utils import config
+from utils.grace_period_closing import *
 from logging.handlers import RotatingFileHandler
 
 # ---------------- Setup ----------------
@@ -91,7 +92,6 @@ def extract_transaction_info(extract_dir: Path):
         raise FileNotFoundError(f"No media_*.mp4 files found in {subfolder}")
 
     return transaction_name, available_cams, str(subfolder), json_path
-
 
 def wait_until_stable(filepath, wait_sec=1, max_wait=50):
     last_size = -1
@@ -214,7 +214,16 @@ def worker(q: Queue):
                         stream = "0"
                         if config.CV_FLAG:
                             cv_activities_cam0 = cv_algo(cam0_logger, sub_folder_path, json_file_path, transaction_number, stream)
-                            log.info(f" CV ACTIVITIES of CAM 0: {cv_activities_cam0}")
+                            if (
+                                isinstance(cv_activities_cam0, list)
+                                and len(cv_activities_cam0) == 1
+                                and isinstance(cv_activities_cam0[0], dict)
+                                and "USER_PUTBACK" in cv_activities_cam0[0]
+                            ):
+                                cv_activities_cam0[0]["USER_PICKUP"] = cv_activities_cam0[0].pop("USER_PUTBACK")
+
+                            log.info(f"CV ACTIVITIES of CAM 0: {cv_activities_cam0}")
+                            
                             if json_file_path:
                                 products_cam0 = cv_product_present(json_file_path, cv_activities_cam0, stream)
                                 log.info(f"Products (Cam 0): {products_cam0}")
@@ -240,29 +249,37 @@ def worker(q: Queue):
                         
                         if combined_products:
                             log.info(f"✅ Found CV product(s): {combined_products}")
-                            if json_file_path:
-                                update_view_activities_dashboard(log, json_file_path, combined_activities)
-                                log.info(f"CV Activities Combined: {combined_activities}")
-                                log.info(f"CV Products Combined: {config.cv_products}")
+                            # if json_file_path:
+                            #     # update_view_activities_dashboard(log, json_file_path, combined_activities)
+                            #     log.info(f"CV Activities Combined: {combined_activities}")
+                            #     log.info(f"CV Products Combined: {config.cv_products}")
                             upload_both_bbox_videos(log, transaction_number)
+                            upload_both_normal_videos(log, transaction_number)
+
                         else:
                             log.info("No products detected in CV pipeline — uploading normal videos")
-                            # upload_both_normal_videos(log, transaction_number)
+                            upload_both_normal_videos(log, transaction_number)
                             upload_both_bbox_videos(log, transaction_number)
                             
                         if json_file_path:
-                            sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
+                            autocorrect_transaction_charge_w_sms_alert(log, json_file_path, combined_activities, transaction_number, config.cv_products)
                     else:
                         upload_both_normal_videos(log, transaction_number)
                 
                 shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
 
-                if config.AUTO_CORRECT:
+                # if config.AUTO_CORRECT:
                 #shutil.move(zip_file_path, FAILED_UPLOADS_DIR / Path(zip_file_path).name)
+                
                 if extracted_dir.exists():
                     shutil.rmtree(extracted_dir)
+                
                 if Path(zip_file_path).exists():
                     os.remove(zip_file_path)
+                
+                # if config.AUTO_CORRECT:    
+                #     close_grace_period(log, transaction_number)
+                                    
                 log.info(f"✓ Completed all steps for {transaction_number} in {time.time()-start:.2f}s")
 
             except Exception as e:

@@ -1,5 +1,6 @@
 import requests
 import json
+import logging
 
 def get_admin_access_token():
     url = "https://viatouchmedia-test.apigee.net/loyalty/users/login/viatouch-admin"
@@ -24,33 +25,36 @@ def get_admin_access_token():
     return data.get("access_token")
 
 
-def change_line_items(access_token, transaction_id):
+def close_grace_period(logger, transaction_id):
+    admin_access_token = get_admin_access_token()
     url = f"https://viatouchmedia-test.apigee.net/loyalty/orders/{transaction_id}/complete"
     headers = {
-        "Authorization": f"Bearer {access_token}",
+        "Authorization": f"Bearer {admin_access_token}",
         "Content-Type": "application/json"
     }
 
     payload = {}
+    if admin_access_token:
+        try:
+            response = requests.put(url, headers=headers, json=payload)
 
-    try:
-        response = requests.put(url, headers=headers, json=payload)
+            if response.status_code == 200:
+                logger.info("Grace Period closed successfully")
+            else:
+                logger.info(f"Error {response.status_code}: {response.text}")
 
-        if response.status_code == 200:
-            print("Grace Period closed successfully")
-        else:
-            print(f"Error {response.status_code}: {response.text}")
-
-    except Exception as e:
-        print(f"Request failed: {e}")
+        except Exception as e:
+            logger.info(f"Request failed: {e}")
+    else:
+        logger.error("No access token found.")
 
 
 if __name__ == "__main__":
     admin_access_token = get_admin_access_token()
     print("Admin token:", admin_access_token)
-
-    transaction_id = "f69176f3-4c1a-449c-9107-484f20b48829"
+    logger = logging.getLogger()
+    transaction_id = "4f276f6e-2c28-4cc8-b5ec-454b2f675698"
 
     # Only call if token came properly
     if admin_access_token:
-        change_line_items(admin_access_token, transaction_id)
+        close_grace_period(logger, transaction_id)

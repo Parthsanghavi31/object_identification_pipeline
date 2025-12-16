@@ -2,8 +2,7 @@ import os
 import numpy as np
 
 CV_FLAG = False
-AUTO_CORRECT = False
-
+AUTO_CORRECT = True
 vicki_app = "http://192.168.1.140:8085/tsv/flashapi"
 
 # ==============================
@@ -22,7 +21,7 @@ model_path = {
     "0": "weights_mobilevit/v3",
     "1": "weights_mobilevit/cam2_weights_v1"
 }
-confidence_threshold = 0.95 # originally at 98%
+confidence_threshold = 0.98 # originally at 98%
 
 cv_products = {
     "0": [
