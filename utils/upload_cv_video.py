@@ -19,6 +19,7 @@ import moviepy.video.io.ImageSequenceClip
 from utils.send_alert import send_alert
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
+from utils import configuration_parameters
 
 def upload_to_dashboard(base_url, post_transid, fileobj, access_token, logger):
     """
@@ -123,7 +124,7 @@ def upload_video(logger, post_transid, stream="0", is_bbox=False):
             return False
         
         if is_bbox:
-            points = np.array(config.pnts[str(stream)], dtype=np.int32)
+            points = np.array(configuration_parameters.pnts[str(stream)], dtype=np.int32)
             points_scaled = (points * 2).astype(np.int32)  # scale ×2
             logger.info(f"[UPLOAD BBOX] Drawing ROI polygon for stream {stream}: {points_scaled.tolist()}")
 
